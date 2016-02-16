@@ -3,3 +3,6 @@
 
 # Replace with the name of your go binary, if any
 /go-template
+
+/.idea
+/*.iml
