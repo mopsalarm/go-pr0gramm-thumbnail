@@ -1,0 +1,5 @@
+/fake-go-path
+/vendor
+
+# Replace with the name of your go binary, if any
+/go-template
