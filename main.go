@@ -16,7 +16,12 @@ import (
   "path/filepath"
   "sort"
   "time"
+  "regexp"
 )
+
+var httpClient = &http.Client{
+  Timeout: 10 * time.Second,
+}
 
 func handleThumbnailRequest(w http.ResponseWriter, req *http.Request, root string) {
   videoUri, err := parseUriFromRequest(req)
@@ -26,8 +31,14 @@ func handleThumbnailRequest(w http.ResponseWriter, req *http.Request, root strin
     return
   }
 
+  if ! regexp.MustCompile("^https?://[^/]*pr0gramm.com/.*").MatchString(videoUri) {
+    w.WriteHeader(403)
+    w.Write([]byte("Uri not allowed"))
+    return
+  }
+
   if err = generateThumbnail(w, videoUri, root); err != nil {
-    w.WriteHeader(400)
+    w.WriteHeader(500)
     w.Write([]byte(err.Error()))
     return
   }
@@ -49,24 +60,57 @@ func openLastFrame(dir string) (*os.File, error) {
   return os.Open(frame)
 }
 
+func bufferVideoUriIfNecessary(videoUri string, temp string) (string, error) {
+  suffix := ".webm"
+  if ! strings.Contains(videoUri, ".gif") {
+    suffix = ".gif"
+  }
+
+  // open target file
+  target := temp + "/input" + suffix
+  file, err := os.Create(target)
+  if err != nil {
+    return "", err
+  }
+
+  defer file.Close()
+
+  // do http request to source file
+  resp, err := httpClient.Get(videoUri)
+  if err != nil {
+    return "", err
+  }
+
+  defer resp.Body.Close()
+
+  // download the gif file
+  io.Copy(file, resp.Body)
+  return target, nil
+}
+
 func generateThumbnail(w http.ResponseWriter, videoUri string, root string) error {
   var err error
 
-  argv := []string{"-y", "-i", videoUri,
-    "-vf", "scale='if(gt(iw,1024),1024,iw)':-1",
-    "-f", "image2", "-t", "3", "-r", "1", "-q:v", "20", "out-%04d.webp"}
+  temp, err := ioutil.TempDir(root, "thumb")
+  if err != nil {
+    return err
+  }
 
-  cmd := exec.Command(root + "/ffmpeg", argv...)
-
-  // make a temp directory
-  cmd.Dir, err = ioutil.TempDir(root, "thumb")
+  videoUri, err = bufferVideoUriIfNecessary(videoUri, temp)
   if err != nil {
     return err
   }
 
   // remove temp dir at the end
-  defer os.RemoveAll(cmd.Dir)
+  defer os.RemoveAll(temp)
 
+  // Execute ffmpeg
+  argv := []string{"-y", "-i", videoUri,
+    "-vf", "scale='if(gt(iw,1024),1024,iw)':-1",
+    "-f", "image2", "-t", "3", "-r", "1", "-q:v", "20", "out-%04d.webp"}
+
+  cmd := exec.Command(root + "/ffmpeg", argv...)
+  cmd.Dir = temp
   if err = cmd.Start(); err != nil {
     return err
   }
