@@ -1,12 +1,14 @@
-hash: dd60022122372759b21f76cdf06800de49a0b78535602a76732901930afeadae
-updated: 2016-02-16T19:35:32.339526397+01:00
+hash: 84da57866ce0064cf6a244301df92fea2bf5a6cc13b3bcdf4d56d12b16290a51
+updated: 2017-04-25T19:39:46.465856084+02:00
 imports:
 - name: github.com/bobziuchkovski/writ
   version: 08e3f25d8bc677e6dcf7b157614c712622556019
 - name: github.com/gorilla/context
   version: 1c83b3eabd45b6d76072b66b746c20815fb2872d
 - name: github.com/gorilla/handlers
-  version: b3aff83722cb2ae031a70cae984650e3a16cd20e
+  version: 3a5767ca75ece5f7f1440b1d16975247f8d8b221
 - name: github.com/gorilla/mux
-  version: 26a6070f849969ba72b72256e9f14cf519751690
-devImports: []
+  version: 392c28fe23e1c45ddba891b0320b3b5df220beea
+- name: github.com/pkg/errors
+  version: 645ef00459ed84a119197bfb8d8205042c6df63d
+testImports: []
