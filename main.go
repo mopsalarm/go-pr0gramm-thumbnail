@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -18,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
@@ -155,10 +157,15 @@ func generateThumbnail(w http.ResponseWriter, videoUri string, root string, buff
 
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 
+	var output bytes.Buffer
+
 	cmd := exec.CommandContext(ctx, "ffmpeg", argv...)
 	cmd.Dir = temp
 
 	if err := cmd.Run(); err != nil {
+		logrus.Warn("Output of failed ffmpeg process")
+		cmd.Stderr.Write(output.Bytes())
+
 		return errors.WithMessage(err, "FFmpeg stopped with an error.")
 	}
 
