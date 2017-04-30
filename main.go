@@ -21,6 +21,7 @@ import (
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	"path"
 )
 
 var httpClient = &http.Client{
@@ -41,10 +42,24 @@ func handleThumbnailRequest(w http.ResponseWriter, req *http.Request, root strin
 		return
 	}
 
-	if err = generateThumbnail(w, videoUri, root); err != nil {
+	bufferSizes := []int{128, 256, 512, 1024}
+	if strings.HasSuffix(videoUri, ".mp4") {
+		bufferSizes = []int{256, 512, 1024}
+	}
+
+	for _, bufferSize := range bufferSizes {
+		log.Printf("Try to get thumbnail for %s with size %dkb\n",
+			path.Base(videoUri), bufferSize)
+
+		if err = generateThumbnail(w, videoUri, root, bufferSize*1024); err == nil {
+			// success, we don't need to try the next size!
+			break
+		}
+	}
+
+	if err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte(err.Error()))
-		return
 	}
 }
 
@@ -64,7 +79,7 @@ func openLastFrame(dir string) (*os.File, error) {
 	return os.Open(frame)
 }
 
-func bufferVideoUriIfNecessary(videoUri string, temp string) (string, error) {
+func bufferVideoUriIfNecessary(videoUri string, temp string, bufferSize int) (string, error) {
 	suffix := ".mp4"
 	if strings.Contains(videoUri, ".gif") {
 		suffix = ".gif"
@@ -79,16 +94,24 @@ func bufferVideoUriIfNecessary(videoUri string, temp string) (string, error) {
 
 	defer file.Close()
 
+	request, err := http.NewRequest("GET", videoUri, nil)
+	if err != nil {
+		return "", errors.WithMessage(err, "Could not create request")
+	}
+
+	// only request the start of the file
+	request.Header.Set("Range", fmt.Sprintf("bytes=0-%d", bufferSize))
+
 	// do http request to source file
-	resp, err := httpClient.Get(videoUri)
+	resp, err := httpClient.Do(request)
 	if err != nil {
 		return "", errors.WithMessage(err, "Could not execute request")
 	}
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return "", errors.WithMessage(err, "Status code not 200.")
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
+		return "", errors.New("Status code not 200.")
 	}
 
 	// download the gif file
@@ -96,13 +119,13 @@ func bufferVideoUriIfNecessary(videoUri string, temp string) (string, error) {
 	return target, nil
 }
 
-func generateThumbnail(w http.ResponseWriter, videoUri string, root string) error {
+func generateThumbnail(w http.ResponseWriter, videoUri string, root string, bufferSize int) error {
 	temp, err := ioutil.TempDir(root, "thumb")
 	if err != nil {
 		return errors.WithMessage(err, "Could not create temporary directory")
 	}
 
-	videoFile, err := bufferVideoUriIfNecessary(videoUri, temp)
+	videoFile, err := bufferVideoUriIfNecessary(videoUri, temp, bufferSize)
 	if err != nil {
 		return errors.WithMessage(err, "Could not download video file")
 	}
@@ -110,10 +133,13 @@ func generateThumbnail(w http.ResponseWriter, videoUri string, root string) erro
 	// remove temp dir at the end
 	defer os.RemoveAll(temp)
 
-	// get video info
-	videoInfo, err := probeVideoInfo(videoFile)
-	if err != nil {
-		return errors.WithMessage(err, "Could not get video info")
+	var videoInfo VideoInfo
+	if !strings.Contains(videoUri, ".gif") {
+		// get video info
+		videoInfo, err = probeVideoInfo(videoFile)
+		if err != nil {
+			return errors.WithMessage(err, "Could not get video info")
+		}
 	}
 
 	timeOffset := math.Min(2.0, videoInfo.Format.Duration/10.0)
@@ -131,8 +157,6 @@ func generateThumbnail(w http.ResponseWriter, videoUri string, root string) erro
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", argv...)
 	cmd.Dir = temp
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
 		return errors.WithMessage(err, "FFmpeg stopped with an error.")
@@ -171,7 +195,7 @@ func parseUriFromRequest(req *http.Request) (string, error) {
 
 type VideoInfo struct {
 	Format struct {
-		Duration float64 `json:",string"`
+		Duration float64 `json:"duration,string"`
 	}
 }
 
@@ -186,6 +210,11 @@ func probeVideoInfo(file string) (VideoInfo, error) {
 
 	// parse result into json!
 	err = json.Unmarshal(output, &info)
+
+	if info.Format.Duration == 0 {
+		fmt.Println(string(output))
+	}
+
 	return info, errors.WithMessage(err, "Error parsing ffprobe result")
 }
 
