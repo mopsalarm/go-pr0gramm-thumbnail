@@ -1,4 +1,21 @@
-FROM alpine:3.5
+FROM golang:1.11-alpine3.8 as builder
+
+RUN apk add --no-cache git
+
+ENV GO111MODULE=on
+ENV PACKAGE github.com/mopsalarm/go-pr0gramm-thumbnail
+WORKDIR $GOPATH/src/$PACKAGE/
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+ENV CGO_ENABLED=0
+
+COPY . .
+RUN go build -v -ldflags="-s -w" -o /service .
+
+
+FROM alpine:3.8
 
 EXPOSE 8080
 
@@ -13,7 +30,9 @@ RUN apk add --no-cache tar xz curl \
  && rm -f /usr/bin/ffmpeg-10bit /usr/bin/ffserver \
  && apk del xz curl tar
 
+RUN apk add --no-update ca-certificates
+
 # install our binary
-COPY /go-pr0gramm-thumbnail /
+COPY --from=builder /service /go-pr0gramm-thumbnail
 
 ENTRYPOINT ["/dumb-init", "/go-pr0gramm-thumbnail", "--path=/tmp"]

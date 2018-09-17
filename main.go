@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"log"
@@ -19,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
@@ -82,6 +82,9 @@ func openLastFrame(dir string) (*os.File, error) {
 }
 
 func bufferVideoUriIfNecessary(videoUri string, temp string, bufferSize int) (string, error) {
+	// only process use https urls.
+	videoUri = strings.Replace(videoUri, "http://", "https://", -1)
+
 	suffix := ".mp4"
 	if strings.Contains(videoUri, ".gif") {
 		suffix = ".gif"
