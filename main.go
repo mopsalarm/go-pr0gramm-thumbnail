@@ -46,7 +46,7 @@ func handleThumbnailRequest(w http.ResponseWriter, req *http.Request, root strin
 
 	bufferSizes := []int{128, 256, 512, 1024}
 	if strings.HasSuffix(videoUri, ".mp4") {
-		bufferSizes = []int{256, 512, 1024}
+		bufferSizes = []int{384, 512, 1024}
 	}
 
 	for _, bufferSize := range bufferSizes {
