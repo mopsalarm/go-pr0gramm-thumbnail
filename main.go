@@ -158,17 +158,18 @@ func generateThumbnail(w http.ResponseWriter, videoUri string, root string, buff
 		"-vf", "scale='if(gt(iw,1024),1024,iw)':-1,boxblur=1:1",
 		"-f", "image2", "-q:v", "20", "-vframes", "1", "out-%04d.webp"}
 
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
 	var output bytes.Buffer
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", argv...)
 	cmd.Dir = temp
+	cmd.Stderr = &output
+	cmd.Stdout = &output
 
 	if err := cmd.Run(); err != nil {
-		logrus.Warn("Output of failed ffmpeg process")
-		cmd.Stderr.Write(output.Bytes())
-
+		logrus.Warn("Output of failed ffmpeg process:\n%s", output.String())
 		return errors.WithMessage(err, "FFmpeg stopped with an error.")
 	}
 
