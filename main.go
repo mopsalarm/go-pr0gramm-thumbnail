@@ -130,13 +130,13 @@ func generateThumbnail(w http.ResponseWriter, videoUri string, root string, buff
 		return errors.WithMessage(err, "Could not create temporary directory")
 	}
 
+  // remove temp dir at the end
+  defer os.RemoveAll(temp)
+
 	videoFile, err := bufferVideoUriIfNecessary(videoUri, temp, bufferSize)
 	if err != nil {
 		return errors.WithMessage(err, "Could not download video file")
 	}
-
-	// remove temp dir at the end
-	defer os.RemoveAll(temp)
 
 	var videoInfo VideoInfo
 	if !strings.Contains(videoUri, ".gif") {
