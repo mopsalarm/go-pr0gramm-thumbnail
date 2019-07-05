@@ -130,8 +130,8 @@ func generateThumbnail(w http.ResponseWriter, videoUri string, root string, buff
 		return errors.WithMessage(err, "Could not create temporary directory")
 	}
 
-  // remove temp dir at the end
-  defer os.RemoveAll(temp)
+	// remove temp dir at the end
+	defer os.RemoveAll(temp)
 
 	videoFile, err := bufferVideoUriIfNecessary(videoUri, temp, bufferSize)
 	if err != nil {
@@ -235,7 +235,8 @@ func main() {
 	limiter := make(chan int, args.Concurrent)
 
 	router := &mux.Router{}
-	router.HandleFunc("/{url}", func(w http.ResponseWriter, req *http.Request) {
+
+	handle := func(w http.ResponseWriter, req *http.Request) {
 		// do request limiting
 		limiter <- 1
 		defer func() {
@@ -243,7 +244,10 @@ func main() {
 		}()
 
 		handleThumbnailRequest(w, req, args.Path)
-	})
+	}
+
+	router.HandleFunc("/{url}", handle)
+	router.HandleFunc("/{url}/thumb.jpg", handle)
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", args.Port),
 		handlers.RecoveryHandler()(
