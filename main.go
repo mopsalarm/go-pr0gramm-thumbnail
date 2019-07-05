@@ -60,6 +60,7 @@ func handleThumbnailRequest(w http.ResponseWriter, req *http.Request, root strin
 	}
 
 	if err != nil {
+    w.Header().Set("Cache-Control", "public, max-age=3600")
 		w.WriteHeader(500)
 		w.Write([]byte(err.Error()))
 	}
@@ -179,6 +180,7 @@ func generateThumbnail(w http.ResponseWriter, videoUri string, root string, buff
 
 		// send to the client
 		w.Header().Set("Content-Type", "image/webp")
+    w.Header().Set("Cache-Control", "public, immutable, max-age=31556926")
 		io.Copy(w, file)
 	}
 
