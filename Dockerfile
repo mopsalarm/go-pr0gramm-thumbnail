@@ -25,8 +25,8 @@ RUN chmod a+x /dumb-init
 
 # install a current ffmpeg static build
 RUN apk add --no-cache tar xz curl \
- && URL=https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-64bit-static.tar.xz \
- && curl  $URL | xz -d | tar -x -C /usr/bin --strip-components=1 \
+ && URL=https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz \
+ && curl $URL | xz -d | tar -x -C /usr/bin --strip-components=1 \
  && rm -f /usr/bin/ffmpeg-10bit /usr/bin/ffserver \
  && apk del xz curl tar
 
